@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { createUser, findUserByEmail, validatePassword, generateAuthTokens, refreshAccessToken as refreshAuthToken, revokeRefreshToken } from '../models/user';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { query } from '../db';
+
+interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+}
 
 const router = Router();
 
@@ -116,7 +123,7 @@ router.get('/me', async (req: AuthenticatedRequest, res) => {
     }
 
     // Don't return password hash
-    const { password_hash, ...userWithoutPassword } = user;
+    const { passwordHash, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
   } catch (err) {
     console.error('Get user error:', err);
@@ -126,7 +133,7 @@ router.get('/me', async (req: AuthenticatedRequest, res) => {
 
 // Helper function to find user by ID (for token validation)
 async function findUserById(id: string) {
-  const res = await query('SELECT id, email, password_hash FROM users WHERE id = $1', [id]);
+  const res = await query<UserRow>('SELECT id, email, password_hash FROM users WHERE id = $1', [id]);
   if (res.rowCount === 0) return null;
   return {
     id: res.rows[0].id,

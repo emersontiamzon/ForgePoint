@@ -17,5 +17,11 @@
     "sourceMap": true
   },
   "include": ["src"],
-  "types": ["node", "react", "react-dom"]
+  "types": ["vite/client", "node", "react", "react-dom"],
+  "compilerOptions": {
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
+  }
 }

@@ -1,6 +1,20 @@
 import { randomUUID } from 'crypto';
 import { query } from './db';
 import { Product, LowStockAlert } from './types';
+
+interface ProductRow {
+  id: string;
+  name: string;
+  description?: string;
+  sku: string;
+  price: string; // Returned as string from pg
+  quantity_on_hand: number;
+  low_stock_threshold?: number | null;
+  supplier?: string | null;
+  location?: string | null;
+  created_at: string;
+  updated_at: string;
+}
 import { sendLowStockAlertEmail } from './services/email';
 
 function rowToProduct(row: any): Product {
@@ -136,7 +150,7 @@ export async function deleteProduct(id: string): Promise<boolean> {
 }
 
 export async function adjustStock(id: string, delta: number, kind: 'sale' | 'return' | 'purchase'): Promise<Product | undefined> {
-  const resSel = await query('SELECT quantity_on_hand FROM products WHERE id = $1', [id]);
+  const resSel = await query<ProductRow>('SELECT quantity_on_hand FROM products WHERE id = $1', [id]);
   if (resSel.rowCount === 0) return undefined;
 
   const current = Number(resSel.rows[0].quantity_on_hand);
@@ -250,12 +264,12 @@ export async function acknowledgeLowStockAlert(alertId: string, userId?: string)
 }
 
 export async function getProductLowStockThreshold(productId: string): Promise<number | undefined> {
-  const res = await query(
+  const res = await query<{ low_stock_threshold: number | null }>(
     `SELECT low_stock_threshold FROM products WHERE id = $1`,
     [productId]
   );
-  if (res.rowCount === 0) return undefined;
-  return res.rows[0].low_stock_threshold ? Number(res.rows[0].low_stock_threshold) : undefined;
+  if (res.rowCount === 0 || res.rows[0].low_stock_threshold === null) return undefined;
+  return res.rows[0].low_stock_threshold;
 }
 
 export async function setProductLowStockThreshold(productId: string, threshold: number): Promise<boolean> {
