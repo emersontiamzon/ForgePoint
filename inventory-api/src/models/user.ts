@@ -1,60 +1,46 @@
-import { query } from '../db';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
+const db = require('../db');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = '1d';
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  password_hash: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  user: Omit<User, 'password_hash'>;
-}
-
-export async function createUser(email: string, password: string, name: string): Promise<User> {
+async function createUser(email, password, name) {
   const hashedPassword = await bcrypt.hash(password, 10);
   const userId = randomUUID();
   const now = new Date().toISOString();
-  
-  const result = await query<User>(
-    `INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [userId, email, hashedPassword, name, now, now]
+
+  const result = await db.query(
+      `INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+      [userId, email, hashedPassword, name, now, now]
   );
 
   return result.rows[0];
 }
 
-export async function findUserByEmail(email: string): Promise<User | undefined> {
-  const result = await query<User>(
-    'SELECT * FROM users WHERE email = $1',
-    [email]
+async function findUserByEmail(email) {
+  const result = await db.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
   );
   return result.rows[0];
 }
 
-export async function validatePassword(user: User, password: string): Promise<boolean> {
+async function validatePassword(user, password) {
+  if (!user || !user.password_hash) return false;
   return bcrypt.compare(password, user.password_hash);
 }
 
-export async function generateAuthTokens(user: User): Promise<AuthTokens> {
+async function generateAuthTokens(user) {
   // Generate access token
   const accessToken = jwt.sign(
-    { userId: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
   );
 
   // Generate refresh token
@@ -63,10 +49,10 @@ export async function generateAuthTokens(user: User): Promise<AuthTokens> {
   expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
 
   // Store refresh token in database
-  await query(
-    `INSERT INTO refresh_tokens (user_id, token, expires_at)
+  await db.query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at)
      VALUES ($1, $2, $3)`,
-    [user.id, refreshToken, expiresAt]
+      [user.id, refreshToken, expiresAt]
   );
 
   // Return tokens and user info (without password)
@@ -78,13 +64,13 @@ export async function generateAuthTokens(user: User): Promise<AuthTokens> {
   };
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
+async function refreshAccessToken(refreshToken) {
   // Find the refresh token in the database
-  const tokenResult = await query<{user_id: string, expires_at: Date}>(
-    `DELETE FROM refresh_tokens 
+  const tokenResult = await db.query(
+      `DELETE FROM refresh_tokens 
      WHERE token = $1 
      RETURNING user_id, expires_at`,
-    [refreshToken]
+      [refreshToken]
   );
 
   if (tokenResult.rows.length === 0) {
@@ -92,16 +78,16 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
   }
 
   const { user_id, expires_at } = tokenResult.rows[0];
-  
+
   // Check if token is expired
   if (new Date(expires_at) < new Date()) {
     return null; // Token expired
   }
 
   // Get user
-  const userResult = await query<User>(
-    'SELECT * FROM users WHERE id = $1',
-    [user_id]
+  const userResult = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [user_id]
   );
 
   if (userResult.rows.length === 0) {
@@ -112,17 +98,27 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
   return generateAuthTokens(userResult.rows[0]);
 }
 
-export async function revokeRefreshToken(refreshToken: string): Promise<void> {
-  await query(
-    'DELETE FROM refresh_tokens WHERE token = $1',
-    [refreshToken]
+async function revokeRefreshToken(refreshToken) {
+  await db.query(
+      'DELETE FROM refresh_tokens WHERE token = $1',
+      [refreshToken]
   );
 }
 
-export async function findUserById(id: string): Promise<User | undefined> {
-  const result = await query<User>(
-    'SELECT * FROM users WHERE id = $1',
-    [id]
+async function findUserById(id) {
+  const result = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [id]
   );
   return result.rows[0];
 }
+
+module.exports = {
+  createUser,
+  findUserByEmail,
+  validatePassword,
+  generateAuthTokens,
+  refreshAccessToken,
+  revokeRefreshToken,
+  findUserById
+};

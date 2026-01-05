@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { createUser, findUserByEmail, validatePassword, generateAuthTokens, refreshAccessToken as refreshAuthToken, revokeRefreshToken } from '../models/user';
+//import { Router } from 'express';
+//import { createUser, findUserByEmail, validatePassword, generateAuthTokens, refreshAccessToken as refreshAuthToken, revokeRefreshToken } from '../models/user';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { query } from '../db';
 
@@ -8,9 +8,17 @@ interface UserRow {
   email: string;
   password_hash: string;
 }
-
-const router = Router();
-
+ 
+const express = require('express');
+const {
+  createUser,
+  findUserByEmail,
+  validatePassword,
+  generateAuthTokens,
+  refreshAccessToken: refreshAuthToken,
+  revokeRefreshToken
+} =  require('../models/user');
+const router = express.Router();
 // Register a new user
 router.post('/register', async (req, res) => {
   try {

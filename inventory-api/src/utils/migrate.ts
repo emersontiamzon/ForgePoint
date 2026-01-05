@@ -1,10 +1,11 @@
-import fs from 'fs';
-import path from 'path';
-import { query } from '../db';
+const fs = require('fs');
+const path = require('path');
+const { query } = require('../db');
 
+// Use __dirname directly since we're using CommonJS
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 
-export async function runMigrations() {
+async function runMigrations() {
   // Create migrations table if it doesn't exist
   await query(`
     CREATE TABLE IF NOT EXISTS migrations (
@@ -15,7 +16,7 @@ export async function runMigrations() {
   `);
 
   // Get all applied migrations
-  const appliedMigrations = await query<{name: string}>(
+  const appliedMigrations = await query(
     'SELECT name FROM migrations ORDER BY name'
   );
   const appliedMigrationNames = new Set(appliedMigrations.rows.map(m => m.name));
@@ -65,3 +66,7 @@ if (require.main === module) {
       process.exit(1);
     });
 }
+
+module.exports = {
+  runMigrations
+};

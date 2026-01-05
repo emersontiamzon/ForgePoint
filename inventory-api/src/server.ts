@@ -1,10 +1,20 @@
-import express from 'express';
-import cors from 'cors';
-import productsRouter from './routes/products';
-import inventoryRouter from './routes/inventory';
-import reportsRouter from './routes/reports';
-import authRouter from './routes/auth';
-import { initDb } from './db';
+const express = require('express');
+const cors = require('cors');
+
+ const dotenv = require('dotenv');
+ dotenv.config();
+
+// Helper function to handle both CommonJS and ES module imports
+function requireRoute(modulePath) {
+  const module = require(modulePath);
+  return module.default || module;
+}
+
+const productsRouter = requireRoute('./routes/products');
+const inventoryRouter = requireRoute('./routes/inventory');
+const reportsRouter = requireRoute('./routes/reports');
+const authRouter = requireRoute('./routes/auth');
+const { initDb } = require('./db');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -28,8 +38,8 @@ async function startServer() {
     await initDb();
     if (process.env.NODE_ENV !== 'test') {
       // Only run migrations in non-test environment
-      const { runMigrations } = await import('./utils/migrate');
-      await runMigrations();
+      const migrate = require('./utils/migrate');
+      await migrate.runMigrations();
     }
     
     console.log('Database initialized and migrations applied');

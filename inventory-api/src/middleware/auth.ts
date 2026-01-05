@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { findUserById } from '../models/user';
+import * as jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -18,6 +17,7 @@ export async function authenticateToken(
 ) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+  const { findUserById } = require('../models/user'); 
 
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -40,6 +40,7 @@ export async function authenticateToken(
 
     next();
   } catch (err) {
+    console.error('JWT verification error:', err);
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
 }
